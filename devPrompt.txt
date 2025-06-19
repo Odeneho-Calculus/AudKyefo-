@@ -1,0 +1,292 @@
+# 🎧 Complete Development Prompt: AudKyɛfo Audio Splitter
+
+## Project Overview
+You are tasked with developing **AudKyɛfo** (meaning "Audio Splitter" in Twi), a fully offline desktop application built with **Python and PyQt5**. This application allows users to upload audio files and split them into segments based on custom preferences.
+
+## 🎯 Exact Requirements
+
+### Core Functionality
+1. **Offline-first**: No internet connection required, all processing local
+2. **Multi-format support**: Input/output for MP3, WAV, AAC, OGG, M4A, FLAC
+3. **Flexible splitting options**: By number of chunks, duration, or custom time ranges
+4. **Cross-platform**: Primary focus on Windows, but should work on macOS/Linux
+5. **User-friendly interface**: Clean, modern PyQt5 UI with progress indicators
+
+### Technical Stack Requirements
+- **Frontend**: PyQt5 (mandatory)
+- **Audio Processing**: pydub + ffmpeg
+- **Metadata**: mutagen (optional)
+- **Packaging**: PyInstaller for standalone executable
+- **Python Version**: 3.8+ compatible
+
+## 📋 Detailed Feature Specifications
+
+### 1. User Interface Structure
+Create a **tabbed interface** or **wizard-style** layout with these sections:
+
+#### Main Window
+- **Application Title**: "AudKyɛfo - Audio Splitter"
+- **Window Size**: 800x600 (resizable, minimum 600x400)
+- **Menu Bar**: File, Edit, Help menus
+- **Status Bar**: Show current operation status
+
+#### Tab 1: File Input
+- **Drag & Drop Zone**: Large area for dropping audio files
+- **Browse Button**: File dialog for manual selection
+- **File Info Panel**: Display selected file's metadata (name, duration, format, size)
+- **Audio Preview**: Simple play/pause controls (optional)
+
+#### Tab 2: Split Configuration
+**Splitting Method Options** (Radio buttons):
+1. **Equal Parts**:
+   - Number input (2-100 parts)
+   - Show calculated duration per part
+2. **Fixed Duration**:
+   - Time input in MM:SS format
+   - Show estimated number of parts
+3. **Custom Ranges** (Advanced):
+   - Table/list widget for adding time ranges
+   - Format: Start Time (MM:SS) - End Time (MM:SS)
+   - Add/Remove/Edit buttons
+
+**Additional Settings**:
+- **Overlap Duration**: Checkbox + time input for overlapping segments
+- **Output Format**: Dropdown (MP3, WAV, AAC, OGG, M4A, FLAC)
+- **Output Quality**: Slider or dropdown for bitrate/quality
+- **Output Folder**: Path selector with browse button
+- **Naming Pattern**: Text field with variables like `{original_name}_{part_number}`
+
+#### Tab 3: Processing & Results
+- **Progress Bar**: Overall progress
+- **Current Operation**: Text showing what's being processed
+- **Processing Log**: Scrollable text area for detailed feedback
+- **Results Table**: List completed segments with play buttons
+- **Action Buttons**: Open Output Folder, Play All, Reset
+
+### 2. Menu System
+#### File Menu
+- New/Open Audio File (Ctrl+O)
+- Recent Files (submenu)
+- Exit (Ctrl+Q)
+
+#### Edit Menu
+- Preferences/Settings
+- Clear Recent Files
+
+#### Help Menu
+- How to Use (opens help dialog)
+- About AudKyɛfo
+
+### 3. Settings/Preferences Window
+- **Default Output Format**
+- **Default Output Location**
+- **Remember Last Settings**: Checkbox
+- **Language**: Dropdown (English/Twi toggle for future)
+- **Theme**: Light/Dark mode toggle
+
+## 🔧 Technical Implementation Details
+
+### Audio Processing Requirements
+```python
+# Core functionality needed:
+# 1. Load audio file using pydub
+# 2. Get audio metadata (duration, format, bitrate)
+# 3. Split audio based on user configuration
+# 4. Export segments with proper naming
+# 5. Handle format conversions
+# 6. Progress callback for UI updates
+```
+
+### Error Handling
+- **File Validation**: Check if file is valid audio format
+- **Format Support**: Graceful fallback if format not supported
+- **Disk Space**: Check available space before processing
+- **Path Validation**: Ensure output directory is writable
+- **Memory Management**: Handle large audio files efficiently
+- **User-Friendly Errors**: Clear error messages with suggested solutions
+
+### File Naming Convention
+Default pattern: `{original_name}_part_{number:03d}.{extension}`
+Examples:
+- `song.mp3` → `song_part_001.mp3`, `song_part_002.mp3`
+- Custom patterns: `{original_name}_{start_time}-{end_time}.{extension}`
+
+### Progress Tracking
+- **File Loading**: 10%
+- **Audio Analysis**: 20%
+- **Splitting Process**: 30-90% (based on number of segments)
+- **File Export**: 90-100%
+
+## 📁 Project Structure
+```
+audkyefo/
+├── main.py                 # Entry point
+├── ui/
+│   ├── __init__.py
+│   ├── main_window.py      # Main application window
+│   ├── file_input_tab.py   # File selection tab
+│   ├── config_tab.py       # Split configuration tab
+│   ├── process_tab.py      # Processing and results tab
+│   ├── settings_dialog.py  # Preferences window
+│   └── about_dialog.py     # About dialog
+├── core/
+│   ├── __init__.py
+│   ├── audio_processor.py  # Main audio processing logic
+│   ├── splitter.py         # Audio splitting algorithms
+│   ├── file_handler.py     # File I/O operations
+│   └── config_manager.py   # Settings management
+├── utils/
+│   ├── __init__.py
+│   ├── validators.py       # Input validation
+│   ├── helpers.py          # Utility functions
+│   └── constants.py        # App constants
+├── resources/
+│   ├── icons/              # Application icons
+│   ├── styles/             # QSS stylesheets
+│   └── translations/       # Future language files
+├── tests/
+│   ├── test_audio_processor.py
+│   ├── test_splitter.py
+│   └── sample_audio/       # Test audio files
+├── requirements.txt
+├── setup.py
+├── build_exe.py           # PyInstaller build script
+└── README.md
+```
+
+## 🚀 Development Steps
+
+### Phase 1: Core Setup (Week 1)
+1. **Project Structure**: Create directory structure and basic files
+2. **Dependencies**: Set up requirements.txt and virtual environment
+3. **Main Window**: Basic PyQt5 window with tabbed interface
+4. **File Input**: Implement file selection and drag-drop functionality
+
+### Phase 2: Audio Processing (Week 2)
+1. **Audio Engine**: Implement pydub-based audio loading and metadata extraction
+2. **Splitting Logic**: Create splitting algorithms for all three methods
+3. **Format Support**: Ensure all required formats work correctly
+4. **Error Handling**: Implement comprehensive error handling
+
+### Phase 3: UI Enhancement (Week 3)
+1. **Configuration Tab**: Build complete split configuration interface
+2. **Progress Tracking**: Add progress bars and status updates
+3. **Results Display**: Create results table with playback options
+4. **Settings System**: Implement preferences and persistence
+
+### Phase 4: Polish & Packaging (Week 4)
+1. **Styling**: Apply consistent theme and styling
+2. **Testing**: Comprehensive testing with various audio files
+3. **Documentation**: Create user guide and help system
+4. **Packaging**: Build standalone executable with PyInstaller
+
+## 🧪 Testing Requirements
+
+### Test Cases to Implement
+1. **File Format Tests**: Test all supported input/output formats
+2. **Split Method Tests**: Verify all splitting methods work correctly
+3. **Edge Cases**: Empty files, very short/long files, corrupted files
+4. **Performance Tests**: Large files (>100MB), many segments (>50)
+5. **UI Tests**: All user interactions, drag-drop, keyboard shortcuts
+6. **Error Scenarios**: Invalid files, insufficient disk space, write permissions
+
+### Sample Test Audio Files Needed
+- Short MP3 (30 seconds)
+- Long WAV (10+ minutes)
+- Various formats (AAC, OGG, M4A, FLAC)
+- Corrupted/invalid files for error testing
+
+## 📝 Code Quality Standards
+
+### Python Standards
+- **PEP 8**: Follow Python style guidelines
+- **Type Hints**: Use type annotations where appropriate
+- **Docstrings**: Document all classes and functions
+- **Error Handling**: Use try-catch blocks with specific exceptions
+- **Logging**: Implement proper logging for debugging
+
+### PyQt5 Best Practices
+- **Signal-Slot Pattern**: Use proper Qt signal-slot connections
+- **Threading**: Use QThread for long-running audio processing
+- **Resource Management**: Properly manage Qt objects and resources
+- **Responsive UI**: Keep UI responsive during processing
+
+## 📦 Packaging Instructions
+
+### Requirements.txt
+```
+PyQt5>=5.15.0
+pydub>=0.25.0
+mutagen>=1.45.0
+```
+
+### PyInstaller Command
+```bash
+pyinstaller --onefile --windowed --add-data "resources;resources" --icon="resources/icons/app.png" main.py --name="AudKyefo"
+```
+
+### Distribution Package
+- Create installer with NSIS or similar
+- Include ffmpeg binaries for Windows
+- Create portable version option
+
+## 🎨 UI/UX Guidelines
+
+### Design Principles
+- **Simplicity**: Clean, uncluttered interface
+- **Clarity**: Clear labels and intuitive workflow
+- **Feedback**: Always show progress and status
+- **Accessibility**: Support keyboard navigation
+- **Consistency**: Consistent button styles and layouts
+
+### Color Scheme (Suggested)
+- **Primary**: #2E7D32 (Green)
+- **Secondary**: #1976D2 (Blue)
+- **Background**: #FAFAFA (Light Gray)
+- **Text**: #212121 (Dark Gray)
+- **Accent**: #FF5722 (Orange for warnings)
+
+## 📋 Deliverables Checklist
+
+### Code Deliverables
+- [ ] Complete Python application with all features
+- [ ] Unit tests with >80% coverage
+- [ ] Comprehensive documentation
+- [ ] Build scripts for executable creation
+- [ ] Sample configuration files
+
+### Documentation
+- [ ] README.md with installation/usage instructions
+- [ ] API documentation for core modules
+- [ ] User manual (PDF/HTML)
+- [ ] Developer setup guide
+- [ ] Troubleshooting guide
+
+### Distribution
+- [ ] Standalone Windows executable
+- [ ] macOS app bundle (optional)
+- [ ] Linux AppImage (optional)
+- [ ] Source distribution package
+
+## 🔍 Success Criteria
+
+The application is considered complete when:
+1. **Functionality**: All splitting methods work correctly with all supported formats
+2. **Usability**: Non-technical users can successfully split audio files
+3. **Performance**: Handles files up to 500MB without issues
+4. **Reliability**: Runs without crashes for typical usage scenarios
+5. **Distribution**: Creates working standalone executable under 50MB
+
+## 💡 Implementation Tips
+
+### For AI Developer
+1. **Start Simple**: Begin with basic functionality, then add features
+2. **Test Early**: Test each component as you build it
+3. **Use Threads**: Audio processing should not block the UI
+4. **Handle Edge Cases**: Plan for unusual file types and sizes
+5. **User Experience**: Focus on clear feedback and error messages
+6. **Modular Design**: Keep audio processing separate from UI code
+
+---
+
+**Final Note**: This prompt provides complete specifications for building AudKyɛfo. Follow the phased approach, implement thorough testing, and focus on creating a polished user experience. The end result should be a professional-quality audio splitting application that users can rely on for their audio processing needs.

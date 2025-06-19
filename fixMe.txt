@@ -1,0 +1,38 @@
+kalculusGuy@kalculus MINGW64 ~/Desktop/projectEra/py/audKyefo
+$ C:/Users/kalculusGuy/AppData/Local/Programs/Python/Python311/python.exe c:/Users/kalculusGuy/Desktop/projectEra/py/audKyefo/run.py
+Checking dependencies...
+PyQt5 is already installed.
+pydub is already installed.
+mutagen is already installed.
+numpy is already installed.
+FFmpeg is installed.
+
+All dependencies are installed. Starting AudKyɛfo...
+
+2025-06-19 18:06:07,853 - utils.translation_loader - INFO - Set language to: en
+2025-06-19 18:06:07,854 - main - INFO - Set language to: en
+2025-06-19 18:06:07,866 - main - INFO - Applied dark theme stylesheet
+Traceback (most recent call last):
+  File "c:\Users\kalculusGuy\Desktop\projectEra\py\audKyefo\run.py", line 121, in <module>
+    sys.exit(main_wrapper())
+             ^^^^^^^^^^^^^^
+  File "c:\Users\kalculusGuy\Desktop\projectEra\py\audKyefo\run.py", line 118, in main_wrapper
+    return main()
+           ^^^^^^
+  File "c:\Users\kalculusGuy\Desktop\projectEra\py\audKyefo\main.py", line 63, in main
+    window = MainWindow()
+             ^^^^^^^^^^^^
+  File "c:\Users\kalculusGuy\Desktop\projectEra\py\audKyefo\ui\main_window.py", line 51, in __init__
+    self.setup_ui()
+  File "c:\Users\kalculusGuy\Desktop\projectEra\py\audKyefo\ui\main_window.py", line 77, in setup_ui
+    self.file_input_tab = FileInputTab(self.audio_processor)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\kalculusGuy\Desktop\projectEra\py\audKyefo\ui\file_input_tab.py", line 65, in __init__
+    self.setup_ui()
+  File "c:\Users\kalculusGuy\Desktop\projectEra\py\audKyefo\ui\file_input_tab.py", line 103, in setup_ui
+    scroll_area = QScrollArea()
+                  ^^^^^^^^^^^
+NameError: name 'QScrollArea' is not defined. Did you mean: 'scroll_area'?
+
+kalculusGuy@kalculus MINGW64 ~/Desktop/projectEra/py/audKyefo
+$
