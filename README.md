@@ -24,7 +24,7 @@ AudKyɛfo (meaning "Audio Splitter" in Twi) is a fully offline desktop applicati
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/audkyefo.git
+   git clone https://github.com/Odeneho-Calculus/AudKyefo-.git
    cd audkyefo
    ```
 
