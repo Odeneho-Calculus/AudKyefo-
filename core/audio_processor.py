@@ -218,9 +218,6 @@ class AudioProcessor:
         # Get the original filename without extension
         original_name = os.path.splitext(os.path.basename(self.audio_file))[0]
 
-        # Get the overlap duration
-        overlap = kwargs.get("overlap", 0)
-
         # Call the appropriate splitting function
         try:
             self._update_progress(30, f"Splitting audio using {method} method...")
@@ -232,7 +229,6 @@ class AudioProcessor:
                 original_name,
                 output_format,
                 naming_pattern,
-                overlap=overlap,
                 progress_callback=self._update_progress,
                 **kwargs
             )

@@ -18,7 +18,7 @@ REQUIRED_PACKAGES = [
     "pydub",
     "mutagen",
     "numpy",
-    "PyQt5.QtMultimedia"  # Added for audio playback
+    "PyQt5.QtMultimedia"
 ]
 
 def check_package(package_name):

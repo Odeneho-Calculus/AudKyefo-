@@ -10,9 +10,12 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QProgressBar, QTextEdit, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QGroupBox, QFormLayout,
-    QSpacerItem, QSizePolicy
+    QSpacerItem, QSizePolicy, QScrollArea, QDialog, QSlider,
+    QListWidget, QListWidgetItem
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QThread, pyqtSlot
+from PyQt5.QtCore import Qt, pyqtSignal, QThread, pyqtSlot, QUrl, QTimer
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
+from pydub import AudioSegment
 
 from core.audio_processor import AudioProcessor
 from core.file_handler import open_directory
@@ -22,6 +25,226 @@ from utils.helpers import generate_output_filename
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+class MediaPlayerDialog(QDialog):
+    """
+    Dialog for playing multiple audio files
+    """
+
+    def __init__(self, audio_files: List[str], parent=None):
+        """
+        Initialize the media player dialog
+
+        Args:
+            audio_files: List of audio file paths to play
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.audio_files = audio_files
+        self.current_index = 0
+        self.is_playing = False
+
+        # Set up the media player
+        self.media_player = QMediaPlayer()
+        self.media_player.stateChanged.connect(self.on_state_changed)
+        self.media_player.positionChanged.connect(self.on_position_changed)
+        self.media_player.durationChanged.connect(self.on_duration_changed)
+        self.media_player.mediaStatusChanged.connect(self.on_media_status_changed)
+
+        # Set up timer for auto-next
+        self.position_timer = QTimer()
+        self.position_timer.timeout.connect(self.update_position)
+        self.position_timer.start(100)  # Update every 100ms
+
+        self.setup_ui()
+        self.load_current_file()
+
+    def setup_ui(self):
+        """Set up the user interface"""
+        self.setWindowTitle(tr("ui.process_tab.media_player_title", "Audio Player"))
+        self.setMinimumSize(500, 400)
+        self.resize(600, 500)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # Title
+        title_label = QLabel(tr("ui.process_tab.media_player_title", "Playing Audio Files"))
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
+        layout.addWidget(title_label)
+
+        # File list
+        list_group = QGroupBox(tr("ui.process_tab.playlist_group", "Playlist"))
+        list_layout = QVBoxLayout(list_group)
+        layout.addWidget(list_group)
+
+        self.file_list = QListWidget()
+        self.file_list.setMaximumHeight(150)
+        for i, file_path in enumerate(self.audio_files):
+            item = QListWidgetItem(os.path.basename(file_path))
+            item.setData(Qt.UserRole, file_path)
+            self.file_list.addItem(item)
+        self.file_list.itemDoubleClicked.connect(self.on_file_selected)
+        list_layout.addWidget(self.file_list)
+
+        # Current file info
+        self.current_file_label = QLabel()
+        self.current_file_label.setAlignment(Qt.AlignCenter)
+        self.current_file_label.setStyleSheet("font-weight: bold; margin: 10px;")
+        layout.addWidget(self.current_file_label)
+
+        # Progress slider
+        progress_group = QGroupBox(tr("ui.process_tab.progress_group", "Progress"))
+        progress_layout = QVBoxLayout(progress_group)
+        layout.addWidget(progress_group)
+
+        self.position_slider = QSlider(Qt.Horizontal)
+        self.position_slider.sliderMoved.connect(self.set_position)
+        progress_layout.addWidget(self.position_slider)
+
+        # Time labels
+        time_layout = QHBoxLayout()
+        self.time_label = QLabel("00:00")
+        self.duration_label = QLabel("00:00")
+        time_layout.addWidget(self.time_label)
+        time_layout.addStretch()
+        time_layout.addWidget(self.duration_label)
+        progress_layout.addLayout(time_layout)
+
+        # Control buttons
+        controls_layout = QHBoxLayout()
+        controls_layout.setSpacing(10)
+        layout.addLayout(controls_layout)
+
+        self.prev_button = QPushButton("⏮ Previous")
+        self.prev_button.clicked.connect(self.previous_file)
+        controls_layout.addWidget(self.prev_button)
+
+        self.play_button = QPushButton("▶ Play")
+        self.play_button.clicked.connect(self.toggle_playback)
+        controls_layout.addWidget(self.play_button)
+
+        self.next_button = QPushButton("Next ⏭")
+        self.next_button.clicked.connect(self.next_file)
+        controls_layout.addWidget(self.next_button)
+
+        # Close button
+        close_button = QPushButton(tr("ui.general.close", "Close"))
+        close_button.clicked.connect(self.close)
+        layout.addWidget(close_button)
+
+        self.update_ui()
+
+    def load_current_file(self):
+        """Load the current file into the media player"""
+        if 0 <= self.current_index < len(self.audio_files):
+            file_path = self.audio_files[self.current_index]
+            url = QUrl.fromLocalFile(file_path)
+            content = QMediaContent(url)
+            self.media_player.setMedia(content)
+
+            # Update current file display
+            file_name = os.path.basename(file_path)
+            self.current_file_label.setText(f"Current: {file_name}")
+
+            # Highlight current item in list
+            self.file_list.setCurrentRow(self.current_index)
+
+    def update_ui(self):
+        """Update UI button states"""
+        self.prev_button.setEnabled(self.current_index > 0)
+        self.next_button.setEnabled(self.current_index < len(self.audio_files) - 1)
+
+    def toggle_playback(self):
+        """Toggle play/pause"""
+        if self.media_player.state() == QMediaPlayer.PlayingState:
+            self.media_player.pause()
+        else:
+            self.media_player.play()
+
+    def previous_file(self):
+        """Go to previous file"""
+        if self.current_index > 0:
+            self.current_index -= 1
+            self.load_current_file()
+            self.update_ui()
+
+    def next_file(self):
+        """Go to next file"""
+        if self.current_index < len(self.audio_files) - 1:
+            self.current_index += 1
+            self.load_current_file()
+            self.update_ui()
+        else:
+            # End of playlist
+            self.media_player.stop()
+
+    def on_file_selected(self, item):
+        """Handle file selection from list"""
+        row = self.file_list.row(item)
+        self.current_index = row
+        self.load_current_file()
+        self.update_ui()
+
+    def set_position(self, position):
+        """Set playback position"""
+        self.media_player.setPosition(position)
+
+    def on_state_changed(self, state):
+        """Handle media player state changes"""
+        if state == QMediaPlayer.PlayingState:
+            self.play_button.setText("⏸ Pause")
+            self.is_playing = True
+        else:
+            self.play_button.setText("▶ Play")
+            self.is_playing = False
+
+    def on_position_changed(self, position):
+        """Handle position changes"""
+        self.position_slider.blockSignals(True)
+        self.position_slider.setValue(position)
+        self.position_slider.blockSignals(False)
+
+        # Update time label
+        seconds = position // 1000
+        minutes = seconds // 60
+        seconds = seconds % 60
+        self.time_label.setText(f"{minutes:02d}:{seconds:02d}")
+
+    def on_duration_changed(self, duration):
+        """Handle duration changes"""
+        self.position_slider.setRange(0, duration)
+
+        # Update duration label
+        seconds = duration // 1000
+        minutes = seconds // 60
+        seconds = seconds % 60
+        self.duration_label.setText(f"{minutes:02d}:{seconds:02d}")
+
+    def on_media_status_changed(self, status):
+        """Handle media status changes"""
+        if status == QMediaPlayer.EndOfMedia:
+            # Auto-advance to next file
+            if self.current_index < len(self.audio_files) - 1:
+                self.next_file()
+                if self.is_playing:
+                    self.media_player.play()
+            else:
+                # End of playlist
+                self.media_player.stop()
+
+    def update_position(self):
+        """Update position (called by timer)"""
+        # This is handled by on_position_changed, but timer ensures smooth updates
+        pass
+
+    def closeEvent(self, event):
+        """Handle dialog close"""
+        self.media_player.stop()
+        self.position_timer.stop()
+        super().closeEvent(event)
 
 class ProcessingThread(QThread):
     """
@@ -53,12 +276,16 @@ class ProcessingThread(QThread):
             self.audio_processor.set_progress_callback(self.update_progress)
 
             # Split the audio
+            # Extract the explicit parameters and pass the rest as kwargs
+            method_config = {k: v for k, v in self.config.items()
+                           if k not in ['method', 'output_dir', 'output_format', 'naming_pattern']}
+
             output_files = self.audio_processor.split_audio(
                 method=self.config.get("method"),
                 output_dir=self.config.get("output_dir"),
                 output_format=self.config.get("output_format"),
                 naming_pattern=self.config.get("naming_pattern"),
-                **self.config
+                **method_config
             )
 
             # Emit the finished signal
@@ -113,10 +340,21 @@ class ProcessTab(QWidget):
 
     def setup_ui(self):
         """Set up the user interface"""
-        # Main layout
-        main_layout = QVBoxLayout(self)
+        # Main layout with scroll area to handle overflow
+        main_widget = QWidget()
+        main_layout = QVBoxLayout(main_widget)
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(20)
+
+        # Create scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(main_widget)
+
+        # Set scroll area as the main widget
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.addWidget(scroll_area)
 
         # Title label
         title_label = QLabel(tr("ui.process_tab.title", "Processing & Results"))
@@ -404,10 +642,33 @@ class ProcessTab(QWidget):
             row = self.results_table.rowCount()
             self.results_table.insertRow(row)
 
+            # Get actual duration
+            duration_str = self.get_audio_duration(file_path)
+
             # Add items to the row
             self.results_table.setItem(row, 0, QTableWidgetItem(file_name))
-            self.results_table.setItem(row, 1, QTableWidgetItem("N/A"))  # Duration would require loading the file
+            self.results_table.setItem(row, 1, QTableWidgetItem(duration_str))
             self.results_table.setItem(row, 2, QTableWidgetItem(size_str))
+
+    def get_audio_duration(self, file_path: str) -> str:
+        """
+        Get the duration of an audio file
+
+        Args:
+            file_path: Path to the audio file
+
+        Returns:
+            Duration as formatted string (MM:SS)
+        """
+        try:
+            audio = AudioSegment.from_file(file_path)
+            duration_seconds = len(audio) / 1000.0  # Convert from milliseconds
+            minutes = int(duration_seconds // 60)
+            seconds = int(duration_seconds % 60)
+            return f"{minutes:02d}:{seconds:02d}"
+        except Exception as e:
+            logger.warning(f"Could not get duration for {file_path}: {e}")
+            return "N/A"
 
     def open_output_folder(self):
         """Open the output folder in the file explorer"""
@@ -417,8 +678,21 @@ class ProcessTab(QWidget):
 
     def play_all(self):
         """Play all the output files"""
-        # This would normally use a media player to play the files
-        self.log("Play all functionality not implemented yet")
+        if not self.output_files:
+            self.log("No output files to play")
+            return
+
+        # Filter out files that exist
+        existing_files = [f for f in self.output_files if os.path.exists(f)]
+
+        if not existing_files:
+            self.log("No output files exist to play")
+            return
+
+        # Open media player dialog
+        self.log(f"Opening media player for {len(existing_files)} files")
+        dialog = MediaPlayerDialog(existing_files, self)
+        dialog.exec_()
 
     def reset(self):
         """Reset the processing tab"""
