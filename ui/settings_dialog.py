@@ -9,9 +9,10 @@ from typing import Dict, Any
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QFormLayout, QComboBox, QCheckBox, QFileDialog, QGroupBox,
-    QDialogButtonBox, QScrollArea, QFrame, QWidget, QLineEdit
+    QDialogButtonBox, QScrollArea, QFrame, QWidget, QLineEdit,
+    QApplication
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QRect
 
 from core.config_manager import ConfigManager
 from utils.constants import (
@@ -51,8 +52,8 @@ class SettingsDialog(QDialog):
         """Set up the user interface"""
         # Set window properties
         self.setWindowTitle(tr("ui.settings_dialog.title", "Preferences"))
-        self.setMinimumWidth(400)
-        self.resize(500, 450)
+        self.setMinimumWidth(550)  # Increased minimum width
+        self.resize(600, 500)      # Increased initial size
 
         # Create a scroll area for the content
         scroll_area = QScrollArea(self)
@@ -80,20 +81,32 @@ class SettingsDialog(QDialog):
         output_layout = QFormLayout(output_group)
         output_layout.setContentsMargins(20, 20, 20, 20)
         output_layout.setSpacing(10)
+        output_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        output_layout.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         main_layout.addWidget(output_group)
 
         # Default output format
         self.format_combo = QComboBox()
+        self.format_combo.setMinimumWidth(150)  # Set minimum width
         for fmt in SUPPORTED_OUTPUT_FORMATS:
             self.format_combo.addItem(fmt.upper(), fmt)
         output_layout.addRow(tr("ui.settings_dialog.default_format_label", "Default Output Format:"), self.format_combo)
 
         # Default output location
         output_location_layout = QHBoxLayout()
-        self.output_location_edit = QLabel()
+        output_location_layout.setSpacing(10)
+
+        # Use QLineEdit instead of QLabel for better text display with elision
+        self.output_location_edit = QLineEdit()
+        self.output_location_edit.setReadOnly(True)
+        self.output_location_edit.setMinimumWidth(250)  # Set minimum width
+
         self.output_location_button = QPushButton(tr("ui.settings_dialog.browse_button", "Browse..."))
-        output_location_layout.addWidget(self.output_location_edit)
-        output_location_layout.addWidget(self.output_location_button)
+        self.output_location_button.setMinimumWidth(100)  # Set minimum width
+
+        output_location_layout.addWidget(self.output_location_edit, 1)  # Give it stretch factor
+        output_location_layout.addWidget(self.output_location_button, 0)  # No stretch
+
         output_layout.addRow(tr("ui.settings_dialog.default_location_label", "Default Output Location:"), output_location_layout)
 
         # Connect the browse button
@@ -104,6 +117,8 @@ class SettingsDialog(QDialog):
         general_layout = QFormLayout(general_group)
         general_layout.setContentsMargins(20, 20, 20, 20)
         general_layout.setSpacing(10)
+        general_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        general_layout.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         main_layout.addWidget(general_group)
 
         # Remember last settings
@@ -112,6 +127,7 @@ class SettingsDialog(QDialog):
 
         # Language
         self.language_combo = QComboBox()
+        self.language_combo.setMinimumWidth(150)  # Set minimum width
 
         # Get available languages from the translation loader
         from utils.translation_loader import get_available_languages
@@ -124,6 +140,7 @@ class SettingsDialog(QDialog):
 
         # Theme
         self.theme_combo = QComboBox()
+        self.theme_combo.setMinimumWidth(150)  # Set minimum width
         self.theme_combo.addItem(tr("ui.settings_dialog.theme_light", "Light"), "light")
         self.theme_combo.addItem(tr("ui.settings_dialog.theme_dark", "Dark"), "dark")
         general_layout.addRow(tr("ui.settings_dialog.theme_label", "Theme:"), self.theme_combo)
@@ -134,9 +151,14 @@ class SettingsDialog(QDialog):
         button_box.rejected.connect(self.reject)
         main_layout.addWidget(button_box)
 
-        # Translate standard buttons
-        button_box.button(QDialogButtonBox.Ok).setText(tr("ui.common.ok", "OK"))
-        button_box.button(QDialogButtonBox.Cancel).setText(tr("ui.common.cancel", "Cancel"))
+        # Translate standard buttons and set minimum width
+        ok_button = button_box.button(QDialogButtonBox.Ok)
+        ok_button.setText(tr("ui.common.ok", "OK"))
+        ok_button.setMinimumWidth(100)
+
+        cancel_button = button_box.button(QDialogButtonBox.Cancel)
+        cancel_button.setText(tr("ui.common.cancel", "Cancel"))
+        cancel_button.setMinimumWidth(100)
 
     def load_settings(self):
         """Load settings from the configuration manager"""
@@ -165,6 +187,9 @@ class SettingsDialog(QDialog):
         index = self.theme_combo.findData(theme)
         if index >= 0:
             self.theme_combo.setCurrentIndex(index)
+
+        # Adjust dialog size based on content
+        self.adjust_size_to_content()
 
     def browse_output_location(self):
         """Open a dialog to select the default output location"""
@@ -224,8 +249,11 @@ class SettingsDialog(QDialog):
         # Update dialog buttons
         button_box = self.findChild(QDialogButtonBox)
         if button_box:
-            button_box.button(QDialogButtonBox.Ok).setText(tr("ui.common.ok", "OK"))
-            button_box.button(QDialogButtonBox.Cancel).setText(tr("ui.common.cancel", "Cancel"))
+            ok_button = button_box.button(QDialogButtonBox.Ok)
+            ok_button.setText(tr("ui.common.ok", "OK"))
+
+            cancel_button = button_box.button(QDialogButtonBox.Cancel)
+            cancel_button.setText(tr("ui.common.cancel", "Cancel"))
 
     def accept(self):
         """Handle dialog acceptance"""
@@ -272,3 +300,49 @@ class SettingsDialog(QDialog):
 
         # Close the dialog
         super().accept()
+
+    def adjust_size_to_content(self):
+        """Adjust the dialog size based on its content"""
+        # Get the content widget from the scroll area
+        scroll_area = self.findChild(QScrollArea)
+        if scroll_area and scroll_area.widget():
+            content_widget = scroll_area.widget()
+
+            # Get the size hint of the content widget
+            content_size = content_widget.sizeHint()
+
+            # Add some padding
+            width = content_size.width() + 60  # Add padding for scroll bars and margins
+            height = min(content_size.height() + 60, 600)  # Limit max height to 600px
+
+            # Get screen size for reference
+            screen_rect = QApplication.desktop().screenGeometry(self)
+            max_width = screen_rect.width() * 0.8  # Limit to 80% of screen width
+            max_height = screen_rect.height() * 0.8  # Limit to 80% of screen height
+
+            # Apply size constraints
+            width = min(width, max_width)
+            height = min(height, max_height)
+
+            # Set the new size, but don't go smaller than our minimum
+            width = max(width, self.minimumWidth())
+            height = max(height, self.minimumHeight())
+
+            # Resize the dialog
+            self.resize(width, height)
+
+            # Center the dialog on the screen
+            self.center_on_screen()
+
+    def center_on_screen(self):
+        """Center the dialog on the screen"""
+        screen_rect = QApplication.desktop().screenGeometry(self)
+        dialog_rect = self.frameGeometry()
+        dialog_rect.moveCenter(screen_rect.center())
+        self.move(dialog_rect.topLeft())
+
+    def showEvent(self, event):
+        """Handle show event to center the dialog"""
+        super().showEvent(event)
+        # Center the dialog when it's shown
+        self.center_on_screen()

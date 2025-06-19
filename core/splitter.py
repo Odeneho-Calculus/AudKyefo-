@@ -15,6 +15,7 @@ from utils.constants import (
     PROGRESS_SPLITTING_END
 )
 from utils.helpers import generate_output_filename
+from utils.translation_loader import tr
 
 # Set up logging
 logger = logging.getLogger(__name__)
