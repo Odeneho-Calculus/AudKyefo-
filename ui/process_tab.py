@@ -18,6 +18,7 @@ from core.audio_processor import AudioProcessor
 from core.file_handler import open_directory
 from utils.translation_loader import tr
 from utils.ui_translator import update_ui_translations
+from utils.helpers import generate_output_filename
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -239,6 +240,29 @@ class ProcessTab(QWidget):
         # Enable the tab
         self.setEnabled(True)
 
+    def get_naming_pattern_example(self, pattern: str) -> str:
+        """
+        Generate a user-friendly example of the naming pattern
+
+        Args:
+            pattern: The naming pattern string
+
+        Returns:
+            User-friendly example string
+        """
+        try:
+            # Generate an example filename using the pattern
+            example = generate_output_filename(
+                original_name="MyAudio",
+                part_number=1,
+                pattern=pattern,
+                extension="mp3"
+            )
+            return f"Example: {example}"
+        except Exception:
+            # If the pattern is invalid, just show it as is with a note
+            return f"Pattern: {pattern}"
+
     def update_config_summary(self):
         """Update the configuration summary labels"""
         # Method
@@ -265,8 +289,9 @@ class ProcessTab(QWidget):
         output_quality = self.config.get("output_quality", "medium")
         self.output_format_label.setText(f"{output_format.upper()} ({output_quality} quality)")
 
-        # Naming pattern
-        self.naming_pattern_label.setText(self.config.get("naming_pattern", ""))
+        # Naming pattern - show user-friendly example
+        naming_pattern = self.config.get("naming_pattern", "")
+        self.naming_pattern_label.setText(self.get_naming_pattern_example(naming_pattern))
 
     def start_processing(self):
         """Start the audio processing"""

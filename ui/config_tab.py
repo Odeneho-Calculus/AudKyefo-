@@ -24,7 +24,7 @@ from utils.constants import (
     SPLIT_METHOD_CUSTOM
 )
 from utils.translation_loader import tr
-from utils.helpers import format_time, parse_time
+from utils.helpers import format_time, parse_time, generate_output_filename
 from utils.validators import is_valid_time_format, is_valid_output_directory, is_valid_naming_pattern
 from utils.ui_translator import update_ui_translations
 
@@ -111,7 +111,7 @@ class ConfigTab(QWidget):
 
         self.num_parts_spin = QSpinBox()
         self.num_parts_spin.setMinimum(2)
-        self.num_parts_spin.setMaximum(100)
+        self.num_parts_spin.setMaximum(9999)  # Allow up to 9999 parts
         self.num_parts_spin.setValue(2)
         self.num_parts_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         equal_parts_layout.addRow(tr("ui.config_tab.num_parts_label", "Number of parts:"), self.num_parts_spin)
@@ -280,10 +280,11 @@ class ConfigTab(QWidget):
         self.naming_pattern_edit.setText(DEFAULT_NAMING_PATTERN)
         self.naming_pattern_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.naming_pattern_edit.setToolTip(tr("ui.config_tab.naming_pattern_tooltip",
-                                           "Pattern used to name output files\n"
+                                           "ONE pattern for ALL files - automatically applies to every segment!\n"
+                                           "Leave as default or customize once for all files.\n\n"
                                            "Available variables:\n"
                                            "{original_name} - Original file name\n"
-                                           "{number} - Segment number\n"
+                                           "{number} - Segment number (auto-increments)\n"
                                            "{start_time} - Start time of segment\n"
                                            "{end_time} - End time of segment"))
         naming_layout.addWidget(self.naming_pattern_edit)
@@ -292,11 +293,20 @@ class ConfigTab(QWidget):
         # Naming pattern help with improved styling
         naming_help = QLabel(
             tr("ui.config_tab.naming_pattern_help",
-               "Available variables: {original_name}, {number}, {start_time}, {end_time}")
+               "✓ One pattern creates ALL file names automatically (e.g., 1000 files from 1 pattern)")
         )
         naming_help.setStyleSheet("font-size: 10px; color: #666666; padding-left: 10px;")
         naming_help.setWordWrap(True)
         settings_layout.addRow("", naming_help)
+
+        # Naming pattern preview
+        self.naming_pattern_preview = QLabel()
+        self.naming_pattern_preview.setStyleSheet("font-size: 10px; color: #0066cc; padding-left: 10px; font-style: italic;")
+        self.naming_pattern_preview.setWordWrap(True)
+        settings_layout.addRow("", self.naming_pattern_preview)
+
+        # Update preview when pattern changes
+        self.naming_pattern_edit.textChanged.connect(self.update_naming_pattern_preview)
 
         # Add spacing before apply button
         main_layout.addSpacing(20)
@@ -318,6 +328,9 @@ class ConfigTab(QWidget):
 
         # Set default method
         self.equal_parts_radio.setChecked(True)
+
+        # Initialize the naming pattern preview
+        self.update_naming_pattern_preview()
 
     def connect_signals(self):
         """Connect signals between components"""
@@ -360,12 +373,42 @@ class ConfigTab(QWidget):
         default_output_dir = os.path.dirname(metadata.get("path", ""))
         self.output_folder_edit.setText(default_output_dir)
 
+        # Auto-suggest naming pattern based on input file (call after all other updates)
+        # This ensures we override any bad saved configs
+        self.auto_suggest_naming_pattern(metadata)
+
         # Update UI based on the new metadata
         self.update_part_duration()
         self.update_num_segments()
 
         # Enable the tab
         self.setEnabled(True)
+
+    def auto_suggest_naming_pattern(self, metadata: Dict[str, Any]):
+        """
+        Auto-suggest a naming pattern based on the input file
+
+        Args:
+            metadata: Audio file metadata
+        """
+        file_path = metadata.get("path", "")
+        if not file_path:
+            return
+
+        # Get the original file name without extension
+        file_name = os.path.splitext(os.path.basename(file_path))[0]
+
+        # Create a smart pattern suggestion using the original_name variable
+        suggested_pattern = "{original_name}_part_{number:03d}"
+
+        # Always use the correct pattern to ensure it's valid
+        current_pattern = self.naming_pattern_edit.text().strip()
+        logger.debug(f"Auto-suggest: current='{current_pattern}', default='{DEFAULT_NAMING_PATTERN}', suggested='{suggested_pattern}'")
+
+        # Always set the correct pattern
+        self.naming_pattern_edit.setText(suggested_pattern)
+        logger.debug(f"Auto-suggest: Set pattern to '{suggested_pattern}'")
+        self.update_naming_pattern_preview()
 
     def update_method_settings(self):
         """Update the settings based on the selected method"""
@@ -478,6 +521,26 @@ class ConfigTab(QWidget):
         if folder:
             self.output_folder_edit.setText(folder)
 
+    def update_naming_pattern_preview(self):
+        """Update the naming pattern preview label"""
+        pattern = self.naming_pattern_edit.text().strip()
+        if not pattern:
+            self.naming_pattern_preview.setText("")
+            return
+
+        try:
+            # Generate an example filename using the pattern
+            example = generate_output_filename(
+                original_name="MyAudio",
+                part_number=1,
+                pattern=pattern,
+                extension="mp3"
+            )
+            self.naming_pattern_preview.setText(f"Preview: {example}")
+        except Exception:
+            # If the pattern is invalid, show error
+            self.naming_pattern_preview.setText("Preview: Invalid pattern")
+
     def apply_configuration(self):
         """Apply the current configuration"""
         # Validate the configuration
@@ -505,10 +568,22 @@ class ConfigTab(QWidget):
             return False
 
         # Validate naming pattern
-        naming_pattern = self.naming_pattern_edit.text()
+        naming_pattern = self.naming_pattern_edit.text().strip()
+        logger.debug(f"Validating naming pattern: '{naming_pattern}'")
+
+        # If pattern is empty, use default
+        if not naming_pattern:
+            naming_pattern = DEFAULT_NAMING_PATTERN
+            self.naming_pattern_edit.setText(naming_pattern)
+            logger.debug(f"Empty pattern, using default: '{naming_pattern}'")
+
         valid, error_message = is_valid_naming_pattern(naming_pattern)
         if not valid:
             logger.error(f"Invalid naming pattern: {error_message}")
+            logger.error(f"Pattern was: '{naming_pattern}'")
+            # Try to fix with default pattern
+            logger.info("Trying to use default naming pattern as fallback")
+            self.naming_pattern_edit.setText(DEFAULT_NAMING_PATTERN)
             return False
 
         # Validate method-specific settings
@@ -722,9 +797,18 @@ class ConfigTab(QWidget):
         if output_dir:
             self.output_folder_edit.setText(output_dir)
 
-        # Set naming pattern
+        # Set naming pattern - but ensure it's valid
         naming_pattern = config.get("naming_pattern", DEFAULT_NAMING_PATTERN)
+
+        # Always use a valid pattern that includes {original_name}
+        if "{original_name}" not in naming_pattern:
+            logger.debug(f"Config has invalid naming pattern '{naming_pattern}', using default")
+            naming_pattern = DEFAULT_NAMING_PATTERN
+
         self.naming_pattern_edit.setText(naming_pattern)
+
+        # Update naming pattern preview
+        self.update_naming_pattern_preview()
 
         # Update UI
         self.update_method_settings()

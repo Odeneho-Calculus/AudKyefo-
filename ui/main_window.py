@@ -296,6 +296,9 @@ class MainWindow(QMainWindow):
         # Enable the process tab
         self.tab_widget.setTabEnabled(2, True)
 
+        # Automatically switch to the process tab
+        self.tab_widget.setCurrentIndex(2)
+
     def on_processing_started(self):
         """Handle processing started event"""
         self.status_bar.showMessage("Processing...")
